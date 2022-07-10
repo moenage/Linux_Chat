@@ -1,7 +1,7 @@
 all: my_lets-talk
 
-my_cshell:
-	gcc -Wall -o lets-talk lets-talk.c
+my_lets-talk:
+	gcc -Wall -o lets-talk list.c lets-talk.c
 
 clean:
-	$(RM) my_lets-talk
+	$(RM) lets-talk
