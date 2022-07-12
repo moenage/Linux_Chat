@@ -122,7 +122,10 @@ int main(int argc, char ** argv) {
     //Threads
     // ***
 
-    // pthread_t keyThread, sendThread, recThread, printThread;
+    // pthread_t keyThread;
+    // pthread_t sendThread;
+    // pthread_t recThread;
+    // pthread_t printThread;
 
     // pthread_create(&keyThread, NULL, Keyboard_Input, ???);
     // pthread_create(&sendThread, NULL, Keyboard_Input, ???);
