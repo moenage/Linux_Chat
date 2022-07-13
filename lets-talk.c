@@ -17,6 +17,7 @@ struct talkArgs {
 
 pthread_mutex_t lock;
 pthread_cond_t cond;
+pthread_cond_t cond2;
 
 int button = 1;
 
@@ -28,7 +29,11 @@ void *Keyboard_Input(void * talker_List) {
 
             List_append(talker_List, (char *)buffer);
 
+            //Notifies Send_Message function of a new message added to the List
             pthread_cond_signal(&cond);
+
+            //Waits to check if !exit command is called or not and to save CPU usage slightly
+            pthread_cond_wait(&cond2, &lock);
             pthread_mutex_unlock(&lock);
         }
     } 
@@ -42,10 +47,11 @@ void *Send_Message(void *args) {
     struct addrinfo *talk_p = talker_args->talk_p;
 
     char sendMe[4800];
+    char checkMe[4800];
     char ch;
 
     int key = 7;
-    
+
     while(button == 1){
         pthread_mutex_lock(&lock);
 
@@ -53,21 +59,34 @@ void *Send_Message(void *args) {
         pthread_cond_wait(&cond, &lock);
 
         strcpy(sendMe, List_trim(talker_List));
+        strcpy(checkMe, sendMe);
         
+        //Encryption
         for(int i = 0; sendMe[i] != '\0'; i++){
             ch = sendMe[i];
             ch += key;
-            ch = ch%256;
+            ch = ch%256; //For char size
             sendMe[i] = ch;
         }
 
+        //Sending through socket
         if ((sendto(talk_sockfd, sendMe, strlen(sendMe), 0, talk_p->ai_addr, talk_p->ai_addrlen)) == -1) {
             printf("ERROR: sending to socket failed");
             exit(1);
         }
 
-        pthread_mutex_unlock(&lock);
 
+        // if(!strcmp(checkMe, "!status")){
+        //
+        // }
+
+        if(!strcmp(checkMe, "!exit\n")){
+            button = 0;
+        }
+
+        //Notify Keyboard_Input function that it's done sending message
+        pthread_cond_signal(&cond2);
+        pthread_mutex_unlock(&lock);
     }
     return 0;
 }
@@ -175,6 +194,7 @@ int main(int argc, char ** argv) {
     // List * listener_List = List_create();
     List * talker_List = List_create();
 
+    // Need struct to pass multiple arguments in pthread_create function
     struct talkArgs talker_args;
     talker_args.talker_List = talker_List;
     talker_args.talk_sockfd = talk_sockfd;
