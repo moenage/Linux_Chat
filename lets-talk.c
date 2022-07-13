@@ -9,6 +9,12 @@
 #include <sys/types.h>
 #include "list.h"
 
+struct talkArgs {
+    List * talker_List;
+    int talk_sockfd;
+    struct addrinfo *talk_p;
+};
+
 pthread_mutex_t lock;
 pthread_cond_t cond;
 
@@ -29,14 +35,36 @@ void *Keyboard_Input(void * talker_List) {
     return 0;
 }
 
-void *Send_Message(void *talker_List) {
+void *Send_Message(void *args) {
+    struct talkArgs *talker_args = args;
+    List * talker_List = talker_args->talker_List;
+    int talk_sockfd = talker_args->talk_sockfd;
+    struct addrinfo *talk_p = talker_args->talk_p;
+
+    char sendMe[4800];
+    char ch;
+
+    int key = 7;
+    
     while(button == 1){
         pthread_mutex_lock(&lock);
+
+        // Waits for signal from Keyboard_Input function
         pthread_cond_wait(&cond, &lock);
 
+        strcpy(sendMe, List_trim(talker_List));
         
+        for(int i = 0; sendMe[i] != '\0'; i++){
+            ch = sendMe[i];
+            ch += key;
+            ch = ch%256;
+            sendMe[i] = ch;
+        }
 
-
+        if ((sendto(talk_sockfd, sendMe, strlen(sendMe), 0, talk_p->ai_addr, talk_p->ai_addrlen)) == -1) {
+            printf("ERROR: sending to socket failed");
+            exit(1);
+        }
 
         pthread_mutex_unlock(&lock);
 
@@ -147,16 +175,10 @@ int main(int argc, char ** argv) {
     // List * listener_List = List_create();
     List * talker_List = List_create();
 
-    List_append(talker_List, "lol");
-    List_append(talker_List, "lol2");
-    List_append(talker_List, "lol3");
-    List_append(talker_List, "lol4");
-
-    char* lmao = "lolfdewfd";
-    for(int i = 0; i < 4; i++){
-        lmao = (char*) List_trim(talker_List);
-        printf("Testing add: %s\n", lmao);
-    }
+    struct talkArgs talker_args;
+    talker_args.talker_List = talker_List;
+    talker_args.talk_sockfd = talk_sockfd;
+    talker_args.talk_p = talk_p;
 
     printf("Welcome to LetS-Talk! Please type your messages now.\n");
 
@@ -166,7 +188,7 @@ int main(int argc, char ** argv) {
     // pthread_t printThread;
 
     pthread_create(&keyThread, NULL, Keyboard_Input, (void*)talker_List);
-    pthread_create(&sendThread, NULL, Send_Message, (void*)talker_List);
+    pthread_create(&sendThread, NULL, Send_Message, &talker_args);
     // pthread_create(&recThread, NULL, Keyboard_Input, ???);
     // pthread_create(&printThread, NULL, Keyboard_Input, ???);
 
