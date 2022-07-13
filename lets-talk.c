@@ -9,13 +9,40 @@
 #include <sys/types.h>
 #include "list.h"
 
-// void *Keyboard_Input(void *threadid) {
+pthread_mutex_t lock;
+pthread_cond_t cond;
 
-// }
+int button = 1;
 
-// void *Send_Message(void *threadid) {
+void *Keyboard_Input(void * talker_List) {
+    char buffer[4800];
+    while(button == 1) {
+        if(fgets(buffer, sizeof(buffer), stdin)){
+            pthread_mutex_lock(&lock);
 
-// }
+            List_append(talker_List, (char *)buffer);
+
+            pthread_cond_signal(&cond);
+            pthread_mutex_unlock(&lock);
+        }
+    } 
+    return 0;
+}
+
+void *Send_Message(void *talker_List) {
+    while(button == 1){
+        pthread_mutex_lock(&lock);
+        pthread_cond_wait(&cond, &lock);
+
+        
+
+
+
+        pthread_mutex_unlock(&lock);
+
+    }
+    return 0;
+}
 
 // void *Rec_Message(void *threadid) {
 
@@ -34,13 +61,6 @@ int main(int argc, char ** argv) {
         printf("ERROR: Did not enter [my port number] [remote/local machine IP] [remote/local port number] correctly");
         return -1;
     }
-
-    printf("loooooooooooooooool\n");
-    printf("%s\n", argv[0]);
-    printf("%s\n", argv[1]);
-    printf("%s\n", argv[2]);
-    printf("%s\n", argv[3]);
-
 
     // ***
     // Listener Socket
@@ -122,20 +142,47 @@ int main(int argc, char ** argv) {
     //Threads
     // ***
 
-    // pthread_t keyThread;
-    // pthread_t sendThread;
+    
+
+    // List * listener_List = List_create();
+    List * talker_List = List_create();
+
+    List_append(talker_List, "lol");
+    List_append(talker_List, "lol2");
+    List_append(talker_List, "lol3");
+    List_append(talker_List, "lol4");
+
+    char* lmao = "lolfdewfd";
+    for(int i = 0; i < 4; i++){
+        lmao = (char*) List_trim(talker_List);
+        printf("Testing add: %s\n", lmao);
+    }
+
+    printf("Welcome to LetS-Talk! Please type your messages now.\n");
+
+    pthread_t keyThread;
+    pthread_t sendThread;
     // pthread_t recThread;
     // pthread_t printThread;
 
-    // pthread_create(&keyThread, NULL, Keyboard_Input, ???);
-    // pthread_create(&sendThread, NULL, Keyboard_Input, ???);
+    pthread_create(&keyThread, NULL, Keyboard_Input, (void*)talker_List);
+    pthread_create(&sendThread, NULL, Send_Message, (void*)talker_List);
     // pthread_create(&recThread, NULL, Keyboard_Input, ???);
     // pthread_create(&printThread, NULL, Keyboard_Input, ???);
 
 
+    while(button == 1){
+        sleep(1);
+    }
+
+    pthread_join(keyThread, NULL);
+    pthread_join(sendThread, NULL);
 
     freeaddrinfo(servinfo);
     freeaddrinfo(talk_servinfo);
+
+    // List_free(listener_List, free);
+    List_free(talker_List, NULL);
 
 
     return 0;
