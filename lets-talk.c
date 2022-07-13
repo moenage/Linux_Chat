@@ -59,12 +59,8 @@ void *Send_Message(void *args) {
         pthread_cond_wait(&cond, &lock);
 
         strcpy(sendMe, List_trim(talker_List));
-        // if(sendMe[strlen(sendMe) - 1] != '\0'){
-        //     strcat(sendMe, "\0");
-        // }
         strcpy(checkMe, sendMe);
 
-        // printf("test: %s", sendMe);
         
         //Encryption
         for(int i = 0; sendMe[i] != '\0'; i++){
@@ -213,10 +209,6 @@ int main(int argc, char ** argv) {
     // pthread_create(&recThread, NULL, Keyboard_Input, ???);
     // pthread_create(&printThread, NULL, Keyboard_Input, ???);
 
-
-    while(button == 1){
-        sleep(1);
-    }
 
     pthread_join(keyThread, NULL);
     pthread_join(sendThread, NULL);
