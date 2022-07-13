@@ -59,7 +59,12 @@ void *Send_Message(void *args) {
         pthread_cond_wait(&cond, &lock);
 
         strcpy(sendMe, List_trim(talker_List));
+        // if(sendMe[strlen(sendMe) - 1] != '\0'){
+        //     strcat(sendMe, "\0");
+        // }
         strcpy(checkMe, sendMe);
+
+        // printf("test: %s", sendMe);
         
         //Encryption
         for(int i = 0; sendMe[i] != '\0'; i++){
@@ -156,6 +161,7 @@ int main(int argc, char ** argv) {
     struct addrinfo talk_hints, *talk_servinfo, *talk_p;
     int talk_status;
 
+    memset(&talk_hints, 0, sizeof talk_hints);
     talk_hints.ai_family = AF_INET; // set to AF_INET6 to use IPv6
     talk_hints.ai_socktype = SOCK_DGRAM;
 
@@ -182,14 +188,9 @@ int main(int argc, char ** argv) {
         return -1;
     }
 
-
-
-
     // ***
     //Threads
     // ***
-
-    
 
     // List * listener_List = List_create();
     List * talker_List = List_create();
