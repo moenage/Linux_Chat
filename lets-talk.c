@@ -44,7 +44,8 @@ void *Keyboard_Input(void * talker_List) {
         if(fgets(buffer, sizeof(buffer), stdin)){
             pthread_mutex_lock(&lock);
             List_append(talker_List, (char *)buffer);
-
+            fflush(stdin);
+            
             //Notifies Send_Message function of a new message added to the List
             pthread_cond_signal(&cond);
 
@@ -53,7 +54,7 @@ void *Keyboard_Input(void * talker_List) {
             pthread_mutex_unlock(&lock);
         }
     } 
-    printf("test key exit\n");
+    // printf("test key exit\n");
     return 0;
 }
 
@@ -102,7 +103,7 @@ void *Send_Message(void *args) {
         pthread_cond_signal(&cond2);
         pthread_mutex_unlock(&lock);
     }
-    printf("test send exit\n");
+    // printf("test send exit\n");
     return 0;
 }
 
@@ -115,6 +116,7 @@ void *Rec_Message(void *args) {
     socklen_t address_len;
     int len = 0;
     char receiveMe[4800];
+    char sendMe[4800];
     char ch;
     char temp;
     int key = 7;
@@ -142,12 +144,13 @@ void *Rec_Message(void *args) {
             button = 0;
         }
 
-        List_append(receiver_List, (char *)receiveMe);
+        strcpy(sendMe, receiveMe);
+        List_append(receiver_List, (char *)sendMe);
         pthread_cond_signal(&cond3);
         pthread_mutex_unlock(&lock2);
     }
 
-    printf("test rec exit\n");
+    // printf("test rec exit\n");
     return 0;
 }
 
@@ -157,14 +160,14 @@ void *Print_Message(void *print_list) {
         pthread_mutex_lock(&lock3);
         pthread_cond_wait(&cond3, &lock3);
 
-        if(List_count(print_list) > 0){
+        while(List_count(print_list) > 0){
             strcpy(printMe, List_trim(print_list));
             printf("%s", printMe);
         }
 
         pthread_mutex_unlock(&lock3);
     }
-    printf("test print exit\n");
+    // printf("test print exit\n");
     return 0;
 }
 
