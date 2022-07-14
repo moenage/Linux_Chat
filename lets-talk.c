@@ -31,6 +31,7 @@ struct receiverArgs {
 
 pthread_mutex_t lock;
 pthread_mutex_t lock2;
+pthread_mutex_t lock3;
 pthread_cond_t cond;
 pthread_cond_t cond2;
 pthread_cond_t cond3;
@@ -74,12 +75,8 @@ void *Send_Message(void *args) {
         pthread_cond_wait(&cond, &lock);
 
         strcpy(sendMe, List_trim(talker_List));
-        // if(sendMe[strlen(sendMe) - 1] != '\0'){
-        //     strcat(sendMe, "\0");
-        // }
         strcpy(checkMe, sendMe);
 
-        
         //Encryption
         for(int i = 0; sendMe[i] != '\0'; i++){
             ch = sendMe[i];
@@ -95,11 +92,6 @@ void *Send_Message(void *args) {
             printf("ERROR: sending to socket failed");
             exit(1);
         }
-
-
-        // if(!strcmp(checkMe, "!status")){
-        //
-        // }
 
         if(!strcmp(checkMe, "!exit\n")){
             button = 0;
@@ -128,6 +120,7 @@ void *Rec_Message(void *args) {
     while(button == 1){
         pthread_mutex_lock(&lock2);
         address_len = sizeof(their_addr);
+
         if((len = recvfrom(rec_socketfd, receiveMe, sizeof(receiveMe), 0, (struct sockaddr *)&their_addr, &address_len)) == -1){
             printf("ERROR: receiving from socket failed");
             exit(1);
@@ -142,7 +135,7 @@ void *Rec_Message(void *args) {
             ch = ch%256; //For char size
             receiveMe[i] = ch;
         }
-        printf("PRINT RECEIVE ME");
+
         List_append(receiver_List, (char *)receiveMe);
         pthread_cond_signal(&cond3);
         pthread_mutex_unlock(&lock2);
@@ -153,14 +146,16 @@ void *Rec_Message(void *args) {
 
 void *Print_Message(void *print_list) {
     char printMe[4800];
-    while(button==1){
-        pthread_mutex_lock(&lock2);
-        pthread_cond_wait(&cond3, &lock2);
-        printf("TRASH");
-        strcpy(printMe, List_trim(print_list));
-        printf("%s/n", printMe);
-        pthread_mutex_unlock(&lock2);
-       
+    while(button == 1){
+        pthread_mutex_lock(&lock3);
+        pthread_cond_wait(&cond3, &lock3);
+
+        if(List_count(print_list) > 0){
+            strcpy(printMe, List_trim(print_list));
+            printf("%s", printMe);
+        }
+
+        pthread_mutex_unlock(&lock3);
     }
     return 0;
 }
