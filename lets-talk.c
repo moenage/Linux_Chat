@@ -30,6 +30,7 @@ struct receiverArgs {
 };
 
 pthread_mutex_t lock;
+pthread_mutex_t lock2;
 pthread_cond_t cond;
 pthread_cond_t cond2;
 pthread_cond_t cond3;
@@ -41,7 +42,6 @@ void *Keyboard_Input(void * talker_List) {
     while(button == 1) {
         if(fgets(buffer, sizeof(buffer), stdin)){
             pthread_mutex_lock(&lock);
-
             List_append(talker_List, (char *)buffer);
 
             //Notifies Send_Message function of a new message added to the List
@@ -79,7 +79,6 @@ void *Send_Message(void *args) {
         // }
         strcpy(checkMe, sendMe);
 
-        // printf("test: %s", sendMe);
         
         //Encryption
         for(int i = 0; sendMe[i] != '\0'; i++){
@@ -115,28 +114,25 @@ void *Send_Message(void *args) {
 
 void *Rec_Message(void *args) {
     //initializations/assignments
-    printf("HELLO\n");
     struct receiverArgs* receiver_args = args;
     List * receiver_List = receiver_args->receiver_List;
     int rec_socketfd = receiver_args->rec_sockfd;
-    struct addrinfo *rec_p = receiver_args->rec_p;
     struct sockaddr_storage their_addr = receiver_args->their_addr;
-    printf("HELLO1\n");
     socklen_t address_len;
+    int len = 0;
     char receiveMe[4800];
     char ch;
     char temp;
     int key = 7;
     
     while(button == 1){
-        printf("HELLO2\n");
-        pthread_mutex_lock(&lock);
+        pthread_mutex_lock(&lock2);
         address_len = sizeof(their_addr);
-        if(recvfrom(rec_socketfd, receiveMe, sizeof(receiveMe), 0, (struct sockaddr *)&their_addr, &address_len) == -1){
+        if((len = recvfrom(rec_socketfd, receiveMe, sizeof(receiveMe), 0, (struct sockaddr *)&their_addr, &address_len)) == -1){
             printf("ERROR: receiving from socket failed");
             exit(1);
         }
-        printf("HELLO3\n");
+        receiveMe[len] = '\0';
         for(int i = 0; receiveMe[i] != '\0'; i++){
             temp = receiveMe[i];
             ch = 256 - ((temp - key) * -1);
@@ -149,8 +145,7 @@ void *Rec_Message(void *args) {
         printf("PRINT RECEIVE ME");
         List_append(receiver_List, (char *)receiveMe);
         pthread_cond_signal(&cond3);
-        pthread_cond_wait(&cond2, &lock);
-        pthread_mutex_unlock(&lock);
+        pthread_mutex_unlock(&lock2);
     }
 
     return 0;
@@ -159,13 +154,12 @@ void *Rec_Message(void *args) {
 void *Print_Message(void *print_list) {
     char printMe[4800];
     while(button==1){
-        pthread_mutex_lock(&lock);
-        pthread_cond_wait(&cond3, &lock);
+        pthread_mutex_lock(&lock2);
+        pthread_cond_wait(&cond3, &lock2);
         printf("TRASH");
         strcpy(printMe, List_trim(print_list));
         printf("%s/n", printMe);
-        pthread_cond_wait(&cond2, &lock);
-        pthread_mutex_unlock(&lock);
+        pthread_mutex_unlock(&lock2);
        
     }
     return 0;
@@ -191,7 +185,7 @@ int main(int argc, char ** argv) {
 
     memset(&hints, 0, sizeof hints);
     hints.ai_flags = AI_PASSIVE;
-    hints.ai_family = AF_INET; // AF_INET or AF_INET6 to force version
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
 
     if ((status = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
@@ -210,8 +204,8 @@ int main(int argc, char ** argv) {
             if(check != -1){
                 break;
             }
+            close(sockfd);
         }
-        close(sockfd);
 
     }
 
