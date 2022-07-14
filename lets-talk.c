@@ -7,6 +7,9 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 #include "list.h"
 
 struct talkArgs {
@@ -15,9 +18,21 @@ struct talkArgs {
     struct addrinfo *talk_p;
 };
 
+struct receiverArgs {
+    int rec_sockfd;
+	// char* myPortNumber;
+	// char* remoteMachineName;
+	// char* remotePortNumber;
+    struct addrinfo *rec_p;
+	List* receiver_List;
+    struct sockaddr_storage their_addr;
+	// pthread_mutex_t* bufferMutexPtr;
+};
+
 pthread_mutex_t lock;
 pthread_cond_t cond;
 pthread_cond_t cond2;
+pthread_cond_t cond3;
 
 int button = 1;
 
@@ -59,8 +74,12 @@ void *Send_Message(void *args) {
         pthread_cond_wait(&cond, &lock);
 
         strcpy(sendMe, List_trim(talker_List));
+        // if(sendMe[strlen(sendMe) - 1] != '\0'){
+        //     strcat(sendMe, "\0");
+        // }
         strcpy(checkMe, sendMe);
 
+        // printf("test: %s", sendMe);
         
         //Encryption
         for(int i = 0; sendMe[i] != '\0'; i++){
@@ -68,6 +87,8 @@ void *Send_Message(void *args) {
             ch += key;
             ch = ch%256; //For char size
             sendMe[i] = ch;
+            //5,6,7
+            //12,13,14
         }
 
         //Sending through socket
@@ -92,14 +113,63 @@ void *Send_Message(void *args) {
     return 0;
 }
 
-// void *Rec_Message(void *threadid) {
+void *Rec_Message(void *args) {
+    //initializations/assignments
+    printf("HELLO\n");
+    struct receiverArgs* receiver_args = args;
+    List * receiver_List = receiver_args->receiver_List;
+    int rec_socketfd = receiver_args->rec_sockfd;
+    struct addrinfo *rec_p = receiver_args->rec_p;
+    struct sockaddr_storage their_addr = receiver_args->their_addr;
+    printf("HELLO1\n");
+    socklen_t address_len;
+    char receiveMe[4800];
+    char ch;
+    char temp;
+    int key = 7;
+    
+    while(button == 1){
+        printf("HELLO2\n");
+        pthread_mutex_lock(&lock);
+        address_len = sizeof(their_addr);
+        if(recvfrom(rec_socketfd, receiveMe, sizeof(receiveMe), 0, (struct sockaddr *)&their_addr, &address_len) == -1){
+            printf("ERROR: receiving from socket failed");
+            exit(1);
+        }
+        printf("HELLO3\n");
+        for(int i = 0; receiveMe[i] != '\0'; i++){
+            temp = receiveMe[i];
+            ch = 256 - ((temp - key) * -1);
+            if(ch > 256){
+                ch = ch % 256;
+            }
+            ch = ch%256; //For char size
+            receiveMe[i] = ch;
+        }
+        printf("PRINT RECEIVE ME");
+        List_append(receiver_List, (char *)receiveMe);
+        pthread_cond_signal(&cond3);
+        pthread_cond_wait(&cond2, &lock);
+        pthread_mutex_unlock(&lock);
+    }
 
-// }
+    return 0;
+}
 
-// void *Print_Message(void *threadid) {
-
-// }
-
+void *Print_Message(void *print_list) {
+    char printMe[4800];
+    while(button==1){
+        pthread_mutex_lock(&lock);
+        pthread_cond_wait(&cond3, &lock);
+        printf("TRASH");
+        strcpy(printMe, List_trim(print_list));
+        printf("%s/n", printMe);
+        pthread_cond_wait(&cond2, &lock);
+        pthread_mutex_unlock(&lock);
+       
+    }
+    return 0;
+}
 
 
 int main(int argc, char ** argv) {
@@ -117,6 +187,7 @@ int main(int argc, char ** argv) {
     struct addrinfo hints, *servinfo, *p;
     int sockfd;
     int status;
+    struct sockaddr_storage their_addr;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_flags = AI_PASSIVE;
@@ -156,6 +227,7 @@ int main(int argc, char ** argv) {
     int talk_sockfd;
     struct addrinfo talk_hints, *talk_servinfo, *talk_p;
     int talk_status;
+    
 
     memset(&talk_hints, 0, sizeof talk_hints);
     talk_hints.ai_family = AF_INET; // set to AF_INET6 to use IPv6
@@ -188,8 +260,9 @@ int main(int argc, char ** argv) {
     //Threads
     // ***
 
-    // List * listener_List = List_create();
+    
     List * talker_List = List_create();
+    List * receiver_List = List_create();
 
     // Need struct to pass multiple arguments in pthread_create function
     struct talkArgs talker_args;
@@ -197,26 +270,33 @@ int main(int argc, char ** argv) {
     talker_args.talk_sockfd = talk_sockfd;
     talker_args.talk_p = talk_p;
 
+    struct receiverArgs receiver_args;
+    receiver_args.receiver_List = receiver_List;
+    receiver_args.rec_sockfd = sockfd;
+    receiver_args.rec_p = p;
+    receiver_args.their_addr = their_addr;
+
     printf("Welcome to LetS-Talk! Please type your messages now.\n");
 
     pthread_t keyThread;
     pthread_t sendThread;
-    // pthread_t recThread;
-    // pthread_t printThread;
+    pthread_t recThread;
+    pthread_t printThread;
 
     pthread_create(&keyThread, NULL, Keyboard_Input, (void*)talker_List);
     pthread_create(&sendThread, NULL, Send_Message, &talker_args);
-    // pthread_create(&recThread, NULL, Keyboard_Input, ???);
-    // pthread_create(&printThread, NULL, Keyboard_Input, ???);
-
+    pthread_create(&recThread, NULL, Rec_Message, &receiver_args);
+    pthread_create(&printThread, NULL, Print_Message, (void*)receiver_List);
 
     pthread_join(keyThread, NULL);
     pthread_join(sendThread, NULL);
+    pthread_join(recThread, NULL);
+    pthread_join(printThread, NULL);
 
     freeaddrinfo(servinfo);
     freeaddrinfo(talk_servinfo);
 
-    // List_free(listener_List, free);
+    List_free(receiver_List, NULL);
     List_free(talker_List, NULL);
 
 
