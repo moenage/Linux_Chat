@@ -53,6 +53,7 @@ void *Keyboard_Input(void * talker_List) {
             pthread_mutex_unlock(&lock);
         }
     } 
+    printf("test key exit\n");
     return 0;
 }
 
@@ -101,6 +102,7 @@ void *Send_Message(void *args) {
         pthread_cond_signal(&cond2);
         pthread_mutex_unlock(&lock);
     }
+    printf("test send exit\n");
     return 0;
 }
 
@@ -136,11 +138,16 @@ void *Rec_Message(void *args) {
             receiveMe[i] = ch;
         }
 
+        if(!strcmp(receiveMe, "!exit\n")){
+            button = 0;
+        }
+
         List_append(receiver_List, (char *)receiveMe);
         pthread_cond_signal(&cond3);
         pthread_mutex_unlock(&lock2);
     }
 
+    printf("test rec exit\n");
     return 0;
 }
 
@@ -157,6 +164,7 @@ void *Print_Message(void *print_list) {
 
         pthread_mutex_unlock(&lock3);
     }
+    printf("test print exit\n");
     return 0;
 }
 
